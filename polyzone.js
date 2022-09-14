@@ -153,16 +153,26 @@ const calculateGridCellPoints = (cellX, cellY, min, gridCellWidth, gridCellHeigh
 
 const pointInPoly = (point, range, poly) => {
   const { x, y, z } = point;
-  const { x: minX, y: minY, z: minZ } = poly.min;
-  const { x: maxX, y: maxY, z: maxZ } = poly.max;
+  const { x: minX, y: minY } = poly.min;
+  const { x: maxX, y: maxY } = poly.max;
+  const minZ = poly.minZ;
+  const maxZ = poly.maxZ;
   const xDistance = Math.min(Math.abs(minX - x), Math.abs(maxX - x));
   const yDistance = Math.min(Math.abs(minY - y), Math.abs(maxY - y));
-  const zDistance = Math.min(Math.abs(minZ - z), Math.abs(maxZ - z));
+  let zDistance = 0;
+
+  if (minZ && maxZ) {
+    zDistance = Math.min(Math.abs(minZ - z), Math.abs(maxZ - z));
+  } else if (minZ) {
+    zDistance = Math.abs(minZ - z);
+  } else if (maxZ) {
+    zDistance = Math.abs(maxZ - z);
+  }
 
   // Checks if point is within the polygon's bounding box
   if (x < minX || x > maxX || y < minY || y > maxY || (minZ && z < minZ) || (maxZ && z > maxZ)) {
     if (range) {
-      return xDistance < range && yDistance < range && (!zDistance || zDistance < range);
+      return xDistance <= range && yDistance <= range && zDistance <= range;
     } else {
       return false;
     }
