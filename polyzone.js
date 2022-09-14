@@ -151,20 +151,22 @@ const calculateGridCellPoints = (cellX, cellY, min, gridCellWidth, gridCellHeigh
   ];
 };
 
-const pointInPoly = (point, poly) => {
-  const x = point.x;
-  const y = point.y;
-  const { x: minX, y: minY } = poly.min;
-  const { x: maxX, y: maxY } = poly.max;
+const pointInPoly = (point, range, poly) => {
+  const { x, y, z } = point;
+  const { x: minX, y: minY, z: minZ } = poly.min;
+  const { x: maxX, y: maxY, z: maxZ } = poly.max;
+  const xDistance = Math.min(Math.abs(minX - x), Math.abs(maxX - x));
+  const yDistance = Math.min(Math.abs(minY - y), Math.abs(maxY - y));
+  const zDistance = Math.min(Math.abs(minZ - z), Math.abs(maxZ - z));
 
   // Checks if point is within the polygon's bounding box
-  if (x < minX || x > maxX || y < minY || y > maxY) return false;
-
-  // Checks if point is within the polygon's height bounds
-  const minZ = poly.minZ;
-  const maxZ = poly.maxZ;
-  const z = point.z;
-  if ((minZ && z < minZ) || (maxZ && z > maxZ)) return false;
+  if (x < minX || x > maxX || y < minY || y > maxY || (minZ && z < minZ) || (maxZ && z > maxZ)) {
+    if (range) {
+      return xDistance < range && yDistance < range && (!zDistance || zDistance < range);
+    } else {
+      return false;
+    }
+  }
 
   // Returns true if the grid cell associated with the point is entirely inside the poly
   const grid = poly.grid;
@@ -450,12 +452,12 @@ class PolyZone {
     });
   }
 
-  isPointInside(point) {
+  isPointInside(point, range) {
     if (this.destroyed) {
       console.log(`[PolyZone] Warning: Called isPointInside on destroyed zone {name=${this.name}`);
       return false;
     }
-    return pointInPoly(point, this);
+    return pointInPoly(point, range, this);
   }
 
   destroy() {
@@ -475,7 +477,7 @@ class PolyZone {
     return GetPedBoneCoords(PlayerPedId(), HEAD_BONE);
   }
 
-  onPointInOut(getPointCb, onPointInOutCb, waitInMS) {
+  onPointInOut(getPointCb, onPointInOutCb, range, waitInMS) {
     // Localize the waitInMS value for performance reasons (default of 500 ms)
     const _waitInMS = waitInMS || 500;
     let isInside = false;
@@ -483,7 +485,7 @@ class PolyZone {
       if (!this.destroyed) {
         if (!this.paused) {
           const point = getPointCb();
-          const newIsInside = this.isPointInside(point);
+          const newIsInside = this.isPointInside(point, range);
           if (newIsInside !== isInside) {
             onPointInOutCb(newIsInside, point);
             isInside = newIsInside;
@@ -499,6 +501,10 @@ class PolyZone {
 
   onPlayerInOut(onPointInOutCb, waitInMS) {
     return this.onPointInOut(this.getPlayerPosition, onPointInOutCb, waitInMS);
+  }
+
+  onPlayerRangeInOut(onPointInOutCb, range, waitInMS) {
+    return this.onPointInOut(this.getPlayerPosition, onPointInOutCb, range, waitInMS);
   }
 
   setPaused(paused) {
